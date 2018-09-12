@@ -32,8 +32,15 @@ public class DictionaryConnection {
      * don't match their expected value.
      */
     public DictionaryConnection(String host, int port) throws DictConnectionException {
-
-        // TODO Add your code here
+        try {
+            socket = new Socket(host, port);
+            input = new BufferedReader(
+                new InputStreamReader(socket.getInputStream())
+            );
+            String message = input.readLine();
+        } catch (Exception e) {
+            throw new DictConnectionException(e.getMessage());
+        }
     }
 
     /** Establishes a new connection with a DICT server using an explicit host, with the default DICT port number, and
