@@ -6,9 +6,13 @@ import ca.ubc.cs317.dict.model.Definition;
 import ca.ubc.cs317.dict.model.MatchingStrategy;
 
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.*;
+
+import static ca.ubc.cs317.dict.net.Status.readStatus;
 
 /**
  * Created by Jonatan on 2017-09-09.
@@ -37,7 +41,11 @@ public class DictionaryConnection {
             input = new BufferedReader(
                 new InputStreamReader(socket.getInputStream())
             );
-            String message = input.readLine();
+            output = new PrintWriter(socket.getOutputStream(), true);
+            Status initial = readStatus(input);
+            if (initial.getStatusCode() != 220) {
+                throw new DictConnectionException();
+            }
         } catch (Exception e) {
             throw new DictConnectionException(e.getMessage());
         }
@@ -59,8 +67,12 @@ public class DictionaryConnection {
      *
      */
     public synchronized void close() {
-
-        // TODO Add your code here
+        output.println("QUIT");
+        try {
+            socket.close();
+        } catch (IOException e) {
+            // do nothing
+        }
     }
 
     /** Requests and retrieves all definitions for a specific word.
@@ -111,7 +123,24 @@ public class DictionaryConnection {
 
         if (!databaseMap.isEmpty()) return databaseMap.values();
 
-        // TODO Add your code here
+        output.println("SHOW DB");
+        Status response = readStatus(input);
+        if (response.getStatusCode() != 110) {
+            throw new DictConnectionException();
+        }
+
+        String[] details = response.getDetails().split(" ");
+        int numDatabase = Integer.parseInt(details[0]);
+
+        for (int i = 0; i < numDatabase; i++) {
+            try {
+                String[] in = input.readLine().split(" ");
+                Database db = new Database(in[0], in[1]);
+                databaseMap.put(db.getName(), db);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
         return databaseMap.values();
     }
