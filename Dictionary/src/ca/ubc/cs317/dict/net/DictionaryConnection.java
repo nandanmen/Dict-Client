@@ -105,11 +105,15 @@ public class DictionaryConnection {
 
             Definition df = new Definition(word, database);
             String def = "";
+            try {
+                def = input.readLine();
+            } catch (IOException e) {
+                // do nothing
+            }
             while (!def.equals(".")) {
                 try {
-                    def = input.readLine();
                     df.appendDefinition(def);
-                    System.out.println(def);
+                    def = input.readLine();
                 } catch (IOException e) {
                     throw new DictConnectionException();
                 }
@@ -151,30 +155,29 @@ public class DictionaryConnection {
 
         output.println("SHOW DB");
         Status response = readStatus(input);
-        if (response.getStatusCode() != 110) {
-            throw new DictConnectionException("Unexpected server response");
+
+        if (response.getStatusCode() != 110) throw new DictConnectionException();
+
+        String next;
+        try {
+            next = input.readLine();
+        } catch (IOException e) {
+            throw new DictConnectionException();
         }
 
-        String[] details = response.getDetails().split(" ");
-        int numDatabase = Integer.parseInt(details[0]);
-
-        for (int i = 0; i < numDatabase; i++) {
+        while (!next.equals(".")) {
             try {
-                String[] in = input.readLine().split(" ", 2);
+                String[] in = splitAtoms(next);
                 Database db = new Database(in[0], in[1]);
                 databaseMap.put(db.getName(), db);
+                next = input.readLine();
             } catch (IOException e) {
-                e.printStackTrace();
+                throw new DictConnectionException();
             }
         }
 
-        // reads . and 250 ok messages from the server so input is clear
-        try {
-            input.readLine();
-            input.readLine();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        Status finalResponse = readStatus(input);
+        if (finalResponse.getStatusCode() != 250) throw new DictConnectionException();
 
         return databaseMap.values();
     }
