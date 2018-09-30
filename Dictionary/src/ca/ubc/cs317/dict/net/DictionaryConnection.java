@@ -13,6 +13,7 @@ import java.net.Socket;
 import java.util.*;
 
 import static ca.ubc.cs317.dict.net.Status.readStatus;
+import static ca.ubc.cs317.dict.util.DictStringParser.splitAtoms;
 
 /**
  * Created by Jonatan on 2017-09-09.
@@ -89,7 +90,32 @@ public class DictionaryConnection {
         Collection<Definition> set = new ArrayList<>();
         getDatabaseList(); // Ensure the list of databases has been populated
 
-        // TODO Add your code here
+        String message = "DEFINE " + database.getName() + " " + word;
+        output.println(message);
+        Status initialStatus = readStatus(input);
+
+        if (initialStatus.getStatusCode() != 150) throw new DictConnectionException();
+
+        String[] firstResponse = initialStatus.getDetails().split(" ", 2);
+        int numDefinitions = Integer.parseInt(firstResponse[0]);
+
+        for (int i = 0; i < numDefinitions; i++) {
+            Status currStatus = readStatus(input);
+            if (currStatus.getStatusCode() != 151) throw new DictConnectionException();
+
+            Definition df = new Definition(word, database);
+            String def = "";
+            while (!def.equals(".")) {
+                try {
+                    def = input.readLine();
+                    df.appendDefinition(def);
+                    System.out.println(def);
+                } catch (IOException e) {
+                    throw new DictConnectionException();
+                }
+            }
+            set.add(df);
+        }
 
         return set;
     }
@@ -126,7 +152,7 @@ public class DictionaryConnection {
         output.println("SHOW DB");
         Status response = readStatus(input);
         if (response.getStatusCode() != 110) {
-            throw new DictConnectionException();
+            throw new DictConnectionException("Unexpected server response");
         }
 
         String[] details = response.getDetails().split(" ");
@@ -134,12 +160,20 @@ public class DictionaryConnection {
 
         for (int i = 0; i < numDatabase; i++) {
             try {
-                String[] in = input.readLine().split(" ");
+                String[] in = input.readLine().split(" ", 2);
                 Database db = new Database(in[0], in[1]);
                 databaseMap.put(db.getName(), db);
             } catch (IOException e) {
                 e.printStackTrace();
             }
+        }
+
+        // reads . and 250 ok messages from the server so input is clear
+        try {
+            input.readLine();
+            input.readLine();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         return databaseMap.values();
@@ -153,7 +187,28 @@ public class DictionaryConnection {
     public synchronized Set<MatchingStrategy> getStrategyList() throws DictConnectionException {
         Set<MatchingStrategy> set = new LinkedHashSet<>();
 
-        // TODO Add your code here
+        output.println("SHOW STRAT");
+        Status response = readStatus(input);
+        if (response.getStatusCode() != 111) throw new DictConnectionException();
+
+        String next = "";
+        try {
+            next = input.readLine();
+        } catch (IOException e) {
+            // do nothing
+        }
+        while (!next.equals(".")) {
+            try {
+                String[] comps = splitAtoms(next);
+                set.add(new MatchingStrategy(comps[0], comps[1]));
+                next = input.readLine();
+            } catch (IOException e) {
+                //
+            }
+        }
+
+        Status finish = readStatus(input);
+        if (finish.getStatusCode() != 250) throw new DictConnectionException();
 
         return set;
     }
