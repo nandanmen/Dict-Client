@@ -90,7 +90,7 @@ public class DictionaryConnection {
         Collection<Definition> set = new ArrayList<>();
         getDatabaseList(); // Ensure the list of databases has been populated
 
-        String message = "DEFINE " + database.getName() + " " + word;
+        String message = "DEFINE " + database.getName() + " " + "\"" + word + "\"";
         output.println(message);
         Status initialStatus = readStatus(input);
 
@@ -104,11 +104,11 @@ public class DictionaryConnection {
             if (currStatus.getStatusCode() != 151) throw new DictConnectionException();
 
             Definition df = new Definition(word, database);
-            String def = "";
+            String def;
             try {
                 def = input.readLine();
             } catch (IOException e) {
-                // do nothing
+                throw new DictConnectionException();
             }
             while (!def.equals(".")) {
                 try {
@@ -137,7 +137,39 @@ public class DictionaryConnection {
     public synchronized Set<String> getMatchList(String word, MatchingStrategy strategy, Database database) throws DictConnectionException {
         Set<String> set = new LinkedHashSet<>();
 
-        // TODO Add your code here
+        String message = "MATCH " + database.getName() + " " + strategy.getName() + " " + "\"" + word + "\"";
+        output.println(message);
+
+        Status initialStatus = readStatus(input);
+        switch (initialStatus.getStatusCode()) {
+            case 550:
+                throw new DictConnectionException("Invalid database");
+            case 551:
+                throw new DictConnectionException("Invalid strategy");
+            case 552:
+                return set;
+            case 152:
+                String def = "";
+                try {
+                    def = input.readLine();
+                } catch (IOException e) {
+                    //
+                }
+                while (!def.equals(".")) {
+                    try {
+                        String[] resp = splitAtoms(def);
+                        set.add(resp[1]);
+                        def = input.readLine();
+                    } catch (IOException e) {
+                        //
+                    }
+                }
+                Status finalResponse = readStatus(input);
+                if (finalResponse.getStatusCode() != 250) throw new DictConnectionException();
+                break;
+            default:
+                throw new DictConnectionException("INVALID RESPONSE");
+        }
 
         return set;
     }
@@ -194,11 +226,11 @@ public class DictionaryConnection {
         Status response = readStatus(input);
         if (response.getStatusCode() != 111) throw new DictConnectionException();
 
-        String next = "";
+        String next;
         try {
             next = input.readLine();
         } catch (IOException e) {
-            // do nothing
+            throw new DictConnectionException();
         }
         while (!next.equals(".")) {
             try {
@@ -206,7 +238,7 @@ public class DictionaryConnection {
                 set.add(new MatchingStrategy(comps[0], comps[1]));
                 next = input.readLine();
             } catch (IOException e) {
-                //
+                throw new DictConnectionException();
             }
         }
 
