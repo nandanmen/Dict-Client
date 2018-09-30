@@ -94,31 +94,43 @@ public class DictionaryConnection {
         output.println(message);
         Status initialStatus = readStatus(input);
 
-        if (initialStatus.getStatusCode() != 150) throw new DictConnectionException();
+        switch (initialStatus.getStatusCode()) {
+            case 550:
+                throw new DictConnectionException("Invalid database");
+            case 552:
+                // do nothing
+                break;
+            case 150:
+                String[] firstResponse = splitAtoms(initialStatus.getDetails());
+                int numDefinitions = Integer.parseInt(firstResponse[0]);
 
-        String[] firstResponse = initialStatus.getDetails().split(" ", 2);
-        int numDefinitions = Integer.parseInt(firstResponse[0]);
+                for (int i = 0; i < numDefinitions; i++) {
+                    Status currStatus = readStatus(input);
+                    if (currStatus.getStatusCode() != 151) throw new DictConnectionException();
 
-        for (int i = 0; i < numDefinitions; i++) {
-            Status currStatus = readStatus(input);
-            if (currStatus.getStatusCode() != 151) throw new DictConnectionException();
-
-            Definition df = new Definition(word, database);
-            String def;
-            try {
-                def = input.readLine();
-            } catch (IOException e) {
-                throw new DictConnectionException();
-            }
-            while (!def.equals(".")) {
-                try {
-                    df.appendDefinition(def);
-                    def = input.readLine();
-                } catch (IOException e) {
-                    throw new DictConnectionException();
+                    Definition df = new Definition(word, database);
+                    String def;
+                    try {
+                        def = input.readLine();
+                    } catch (IOException e) {
+                        throw new DictConnectionException();
+                    }
+                    while (!def.equals(".")) {
+                        try {
+                            df.appendDefinition(def);
+                            def = input.readLine();
+                        } catch (IOException e) {
+                            throw new DictConnectionException();
+                        }
+                    }
+                    set.add(df);
                 }
-            }
-            set.add(df);
+
+                Status closing = readStatus(input);
+                if (closing.getStatusCode() != 250) throw new DictConnectionException();
+                break;
+            default:
+                throw new DictConnectionException();
         }
 
         return set;
@@ -188,28 +200,35 @@ public class DictionaryConnection {
         output.println("SHOW DB");
         Status response = readStatus(input);
 
-        if (response.getStatusCode() != 110) throw new DictConnectionException();
+        switch (response.getStatusCode()) {
+            case 110:
+                String next = "";
+                try {
+                    next = input.readLine();
+                } catch (IOException e) {
+                    //
+                }
 
-        String next;
-        try {
-            next = input.readLine();
-        } catch (IOException e) {
-            throw new DictConnectionException();
-        }
+                while (!next.equals(".")) {
+                    try {
+                        String[] in = splitAtoms(next);
+                        Database db = new Database(in[0], in[1]);
+                        databaseMap.put(db.getName(), db);
+                        next = input.readLine();
+                    } catch (IOException e) {
+                        //
+                    }
+                }
 
-        while (!next.equals(".")) {
-            try {
-                String[] in = splitAtoms(next);
-                Database db = new Database(in[0], in[1]);
-                databaseMap.put(db.getName(), db);
-                next = input.readLine();
-            } catch (IOException e) {
+                Status finalResponse = readStatus(input);
+                if (finalResponse.getStatusCode() != 250) throw new DictConnectionException();
+                break;
+            case 554:
+                // do nothing
+                break;
+            default:
                 throw new DictConnectionException();
-            }
         }
-
-        Status finalResponse = readStatus(input);
-        if (finalResponse.getStatusCode() != 250) throw new DictConnectionException();
 
         return databaseMap.values();
     }
@@ -224,26 +243,34 @@ public class DictionaryConnection {
 
         output.println("SHOW STRAT");
         Status response = readStatus(input);
-        if (response.getStatusCode() != 111) throw new DictConnectionException();
 
-        String next;
-        try {
-            next = input.readLine();
-        } catch (IOException e) {
-            throw new DictConnectionException();
-        }
-        while (!next.equals(".")) {
-            try {
-                String[] comps = splitAtoms(next);
-                set.add(new MatchingStrategy(comps[0], comps[1]));
-                next = input.readLine();
-            } catch (IOException e) {
+        switch (response.getStatusCode()) {
+            case 555:
+                // do nothing
+                break;
+            case 111:
+                String next ="";
+                try {
+                    next = input.readLine();
+                } catch (IOException e) {
+                    //
+                }
+                while (!next.equals(".")) {
+                    try {
+                        String[] comps = splitAtoms(next);
+                        set.add(new MatchingStrategy(comps[0], comps[1]));
+                        next = input.readLine();
+                    } catch (IOException e) {
+                        //
+                    }
+                }
+
+                Status finish = readStatus(input);
+                if (finish.getStatusCode() != 250) throw new DictConnectionException();
+                break;
+            default:
                 throw new DictConnectionException();
-            }
         }
-
-        Status finish = readStatus(input);
-        if (finish.getStatusCode() != 250) throw new DictConnectionException();
 
         return set;
     }
