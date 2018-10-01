@@ -48,7 +48,7 @@ public class DictionaryConnection {
                 throw new DictConnectionException();
             }
         } catch (Exception e) {
-            throw new DictConnectionException(e.getMessage());
+            throw new DictConnectionException();
         }
     }
 
@@ -159,7 +159,8 @@ public class DictionaryConnection {
             case 551:
                 throw new DictConnectionException("Invalid strategy");
             case 552:
-                return set;
+                // do nothing
+                break;
             case 152:
                 String def = "";
                 try {
